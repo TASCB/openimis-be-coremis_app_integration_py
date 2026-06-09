@@ -23,7 +23,9 @@ setup(
         'django',
         'django-db-signals',
         'djangorestframework',
-        'openimis-be-core'
+        'openimis-be-core',
+        'requests>=2.31',
+        'starkbank-ecdsa>=2.2',  # secp256k1 signing/verification for the vendored esb_client (GovESB)
     ],
     classifiers=[
         'Environment :: Web Environment',
