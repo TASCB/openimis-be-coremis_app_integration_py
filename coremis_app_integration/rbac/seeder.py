@@ -14,7 +14,7 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-# openIMIS bootstrap admin user id used for audit stamping (matches the module rights-seed migrations).
+
 ADMIN_AUDIT_USER_ID = 1
 ROLE_NAME_MAX = 50
 

@@ -16,7 +16,7 @@ openIMIS itself has no group concept — the person's workstream lives in FreeIP
 ``pilot`` marks the first-wave subset seeded by default (``--all`` seeds everything).
 """
 
-# ── Named right codes (for readability; keep in sync with ROLE_RIGHTS_MAPPING.md) ──────────────
+# ── Named right codes ──────────────
 # Core / administration
 R_USER_SEARCH, R_USER_CREATE, R_USER_DELETE = 121701, 121702, 121704
 R_ROLE_SEARCH, R_ROLE_CREATE, R_ROLE_UPDATE, R_ROLE_DELETE = 122001, 122002, 122003, 122004
@@ -34,7 +34,7 @@ R_GROUP_SEARCH, R_GROUP_CREATE = 180001, 180002
 R_BP_SEARCH, R_BP_CREATE, R_BP_UPDATE = 160001, 160002, 160003
 R_ENROL_SEARCH, R_ENROL_CREATE, R_ENROL_UPDATE = 170001, 170002, 170003
 R_PROJECT_SEARCH = 209001
-R_INDIV_UPDATE_ = 159003  # registry correction (WEO/Council)
+R_INDIV_UPDATE_ = 159003 
 R_GROUP_UPDATE = 180003
 R_GRM_RESOLVE = 127006
 
@@ -86,34 +86,33 @@ def _role(group, description, rights, pilot=True):
 
 
 # ── The catalogue ──────────────────────────────────────────────────────────────────────────────
-# Name ≤ 50 chars (tblRole.RoleName limit). Names are the idempotency key — do not rename casually.
 ROLE_CATALOGUE = {
     # UG03 — Finance, Disbursement & E-Payment (maker → reviewer → approver kept separate)
-    'TASAF Disbursement Maker': _role(
+    'Disbursement Maker': _role(
         'UG03', 'Prepares payment cycles, payroll, reconciliation and paylists. Cannot approve.',
         [R_CYCLE_SEARCH, R_CYCLE_CREATE, R_PAYROLL_SEARCH, R_PAYROLL_CREATE,
          R_RECON_SEARCH, R_RECON_CREATE, R_PAYLIST_SEARCH, R_PAYLIST_GENERATE]),
-    'TASAF Finance Manager (Reviewer)': _role(
+    'Finance Manager (Reviewer)': _role(
         'UG03', 'Reviews/reconciles payment work. No final authorisation.',
         [R_CYCLE_SEARCH, R_PAYROLL_SEARCH, R_RECON_SEARCH, R_PAYLIST_SEARCH, R_PAY_FEEDBACK_SEARCH]),
-    'TASAF Payment Approver': _role(
+    'Payment Approver': _role(
         'UG03', 'Final disbursement authority (paylist approve/submit). No preparation.',
         [R_PAYLIST_APPROVE, R_PAYLIST_SUBMIT, R_PAYLIST_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH]),
 
     # UG06 — Programs, PCT & Economic Inclusion
-    'TASAF PCT Officer': _role(
+    'PCT Officer': _role(
         'UG06', 'Enrolment maker; records training/participation; raises grievances.',
         [R_ENROL_SEARCH, R_ENROL_CREATE, R_ENROL_UPDATE, R_INDIV_SEARCH, R_GROUP_SEARCH,
          210101, 210102, R_TRAINING_PARTICIPANT_CREATE, 127000, 127001, 127002]),
-    'TASAF PCT Manager': _role(
+    'PCT Manager': _role(
         'UG06', 'Reviews programme work; owns the Training module.',
         [R_ENROL_SEARCH, R_BP_SEARCH, R_PROJECT_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH, 127000] + R_TRAINING),
 
     # UG07 — CSPW / Safeguards / GRM
-    'TASAF GRM Intake': _role(
+    'GRM Intake': _role(
         'UG07', 'Registers grievances and initial info; no sensitive-case closure.',
         R_GRM_INTAKE + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH]),
-    'TASAF Grievance Officer': _role(
+    'Grievance Officer': _role(
         'UG07', 'Full grievance CRUD incl. resolve; reads registry/enrolment/payment.',
         R_GRM + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH, R_PAYLIST_SEARCH]),
 
@@ -126,18 +125,18 @@ ROLE_CATALOGUE = {
         READ_ACROSS + DASHBOARDS + [R_BP_SEARCH, R_PROJECT_SEARCH]),
 
     # UG05 — ICT, Systems & Digital Delivery (config only; NO business approval)
-    'TASAF System Administrator': _role(
+    'System Administrator': _role(
         'UG05', 'Configures users/roles/locations/schema/flows/dedup. No business approvals.',
         [R_USER_SEARCH, R_USER_CREATE, R_USER_DELETE, R_ROLE_SEARCH, R_ROLE_CREATE, R_ROLE_UPDATE,
          R_ROLE_DELETE] + R_LOC + R_SCHEMA + R_FLOW + R_DEDUP),
 
     # UG02 — Internal Audit & Assurance (read-only + masked data)
-    'TASAF Internal Auditor': _role(
+    'Internal Auditor': _role(
         'UG02', 'Reads everything (incl. masked data); changes nothing.',
         READ_ACROSS + DASHBOARDS + [R_VIEW_MASKED]),
 
     # Field / Directorate tiers that the enrolment approval cascade routes to (Phase 3).
-    'TASAF Council Coordinator': _role(
+    'Council Coordinator': _role(
         'UG07', 'Endorses council enrolment; registry corrections; resolves council grievances.',
         [R_INDIV_SEARCH, R_INDIV_UPDATE_, R_GROUP_SEARCH, R_GROUP_UPDATE,
          R_ENROL_SEARCH, R_ENROL_UPDATE, R_GRM_RESOLVE, R_PAYLIST_SEARCH]),
@@ -147,16 +146,16 @@ ROLE_CATALOGUE = {
          R_INDIV_SEARCH, R_GROUP_SEARCH, R_GRM_RESOLVE, 210110] + DASHBOARDS),
 
     # UG01 — Coordination module approval chain (submit → manager → officer → dept)
-    'TASAF Coordination Officer (maker)': _role(
+    'Coordination Officer (maker)': _role(
         'UG01', 'Creates/updates and submits coordination activities.',
         [R_COORD_SEARCH, R_COORD_CREATE, R_COORD_UPDATE]),
-    'TASAF Coordination Line Manager': _role(
+    'Coordination Line Manager': _role(
         'UG01', 'First approval hop: manager-approve submitted activities.',
         [R_COORD_SEARCH, R_COORD_MANAGER_APPROVE]),
-    'TASAF Coordination Officer (approver)': _role(
+    'Coordination Officer (approver)': _role(
         'UG01', 'Second approval hop: coordination-officer approve.',
         [R_COORD_SEARCH, R_COORD_OFFICER_APPROVE]),
-    'TASAF Coordination Manager': _role(
+    'Coordination Manager': _role(
         'UG01', 'Final approval hop + department admin/settings for Coordination.',
         [R_COORD_SEARCH, R_COORD_DEPT_APPROVE, R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD, R_COORD_ADMIN]),
 }
