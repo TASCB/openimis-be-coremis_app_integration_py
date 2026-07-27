@@ -117,10 +117,10 @@ ROLE_CATALOGUE = {
         R_GRM + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH, R_PAYLIST_SEARCH]),
 
     # UG08 — Monitoring, Evaluation & Data (read-only across modules + reporting)
-    'TASAF M&E Officer': _role(
+    'M&E Officer': _role(
         'UG08', 'Reads approved data across modules; dashboards. No CRUD outside M&E.',
         READ_ACROSS + DASHBOARDS),
-    'TASAF M&E Manager': _role(
+    'M&E Manager': _role(
         'UG08', 'Broader cross-module read + reporting/dashboards management.',
         READ_ACROSS + DASHBOARDS + [R_BP_SEARCH, R_PROJECT_SEARCH]),
 
@@ -140,7 +140,7 @@ ROLE_CATALOGUE = {
         'UG07', 'Endorses council enrolment; registry corrections; resolves council grievances.',
         [R_INDIV_SEARCH, R_INDIV_UPDATE_, R_GROUP_SEARCH, R_GROUP_UPDATE,
          R_ENROL_SEARCH, R_ENROL_UPDATE, R_GRM_RESOLVE, R_PAYLIST_SEARCH]),
-    'TASAF Director of Programs': _role(
+    'Director of Programs': _role(
         'UG06', 'Final programme/enrolment approver; benefit-plan setup; training certification.',
         [R_ENROL_SEARCH, R_ENROL_UPDATE, R_BP_SEARCH, R_BP_CREATE, R_BP_UPDATE, R_PROJECT_SEARCH,
          R_INDIV_SEARCH, R_GROUP_SEARCH, R_GRM_RESOLVE, 210110] + DASHBOARDS),
