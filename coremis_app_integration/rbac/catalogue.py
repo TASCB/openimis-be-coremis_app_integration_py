@@ -28,6 +28,7 @@ R_VIEW_MASKED = 900101
 
 # Individual & household registry
 R_INDIV_SEARCH, R_INDIV_CREATE, R_INDIV_UPDATE = 159001, 159002, 159003
+R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH = 260001, 260011
 R_GROUP_SEARCH, R_GROUP_CREATE = 180001, 180002
 
 # Social protection (benefit plan / enrolment / project)
@@ -82,6 +83,9 @@ READ_ACROSS = [
 DASHBOARDS = [R_PAY_DASHBOARD, R_TRAINING_DASHBOARD, R_COMMS_DASHBOARD, R_COORD_DASHBOARD,
               R_UNIFIED_CALENDAR]
 
+# PSSN II (legacy) registry, read-only.
+LEGACY_REGISTRY_READ = [R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH]
+
 
 def _role(group, description, rights, pilot=True):
     # De-dup while preserving order.
@@ -130,10 +134,10 @@ ROLE_CATALOGUE = {
     # UG08 — Monitoring, Evaluation & Data (read-only across modules + reporting)
     'M&E Officer': _role(
         'UG08', 'Reads approved data across modules; dashboards. No CRUD outside M&E.',
-        READ_ACROSS + DASHBOARDS),
+        READ_ACROSS + DASHBOARDS + LEGACY_REGISTRY_READ),
     'M&E Manager': _role(
         'UG08', 'Broader cross-module read + reporting/dashboards management.',
-        READ_ACROSS + DASHBOARDS + [R_BP_SEARCH, R_PROJECT_SEARCH]),
+        READ_ACROSS + DASHBOARDS + LEGACY_REGISTRY_READ + [R_BP_SEARCH, R_PROJECT_SEARCH]),
 
     # UG05 — ICT, Systems & Digital Delivery (config only; NO business approval)
     'System Administrator': _role(
