@@ -69,6 +69,7 @@ R_COMMS_DASHBOARD = 221201
 R_COORD_SEARCH, R_COORD_CREATE, R_COORD_UPDATE, R_COORD_DELETE = 251101, 251102, 251103, 251104
 R_COORD_MANAGER_APPROVE, R_COORD_OFFICER_APPROVE, R_COORD_DEPT_APPROVE = 251110, 251111, 251112
 R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD, R_COORD_ADMIN = 251202, 251601, 251901
+R_UNIFIED_CALENDAR = 251602
 
 # Read-only "search" set used by oversight roles (Auditor / M&E / ED).
 READ_ACROSS = [
@@ -76,7 +77,8 @@ READ_ACROSS = [
     R_CYCLE_SEARCH, R_PAYROLL_SEARCH, R_PAYLIST_SEARCH, R_PAY_FEEDBACK_SEARCH,
     R_GRM[0], 210101, R_COMMS_SEARCH, R_TRAINING_REPORT,
 ]
-DASHBOARDS = [R_PAY_DASHBOARD, R_TRAINING_DASHBOARD, R_COMMS_DASHBOARD, R_COORD_DASHBOARD]
+DASHBOARDS = [R_PAY_DASHBOARD, R_TRAINING_DASHBOARD, R_COMMS_DASHBOARD, R_COORD_DASHBOARD,
+              R_UNIFIED_CALENDAR]
 
 
 def _role(group, description, rights, pilot=True):
@@ -111,7 +113,8 @@ ROLE_CATALOGUE = {
          R_TRAINING_REPORT, 127000, 127001, 127002]),
     'PCT Manager': _role(
         'UG06', 'Reviews programme work; owns the Training module.',
-        [R_ENROL_SEARCH, R_BP_SEARCH, R_PROJECT_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH, 127000] + R_TRAINING),
+        [R_ENROL_SEARCH, R_BP_SEARCH, R_PROJECT_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH,
+         127000, R_UNIFIED_CALENDAR] + R_TRAINING),
 
     # UG07 — CSPW / Safeguards / GRM
     'GRM Intake': _role(
@@ -154,7 +157,7 @@ ROLE_CATALOGUE = {
     # UG01 — Coordination module approval chain (submit → manager → officer → dept)
     'Coordination Officer (maker)': _role(
         'UG01', 'Creates/updates and submits coordination activities.',
-        [R_COORD_SEARCH, R_COORD_CREATE, R_COORD_UPDATE]),
+        [R_COORD_SEARCH, R_COORD_CREATE, R_COORD_UPDATE, R_UNIFIED_CALENDAR]),
     'Coordination Line Manager': _role(
         'UG01', 'First approval hop: manager-approve submitted activities.',
         [R_COORD_SEARCH, R_COORD_MANAGER_APPROVE]),
@@ -163,7 +166,8 @@ ROLE_CATALOGUE = {
         [R_COORD_SEARCH, R_COORD_OFFICER_APPROVE]),
     'Coordination Manager': _role(
         'UG01', 'Final approval hop + department admin/settings for Coordination.',
-        [R_COORD_SEARCH, R_COORD_DEPT_APPROVE, R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD, R_COORD_ADMIN]),
+        [R_COORD_SEARCH, R_COORD_DEPT_APPROVE, R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD,
+         R_COORD_ADMIN, R_UNIFIED_CALENDAR]),
 }
 
 PILOT_ROLE_NAMES = [name for name, entry in ROLE_CATALOGUE.items() if entry['pilot']]
