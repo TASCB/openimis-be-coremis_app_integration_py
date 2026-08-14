@@ -26,6 +26,10 @@ R_DEDUP = [172001, 172002]
 R_FLOW = [240101, 240102, 240103, 240104]
 R_VIEW_MASKED = 900101
 
+# Access requests (module 23)
+R_AR_SEARCH, R_AR_VIEW = 230101, 230102
+R_AR_MANAGER_APPROVE, R_AR_ICT_APPROVE = 230201, 230202
+
 # Individual & household registry
 R_INDIV_SEARCH, R_INDIV_CREATE, R_INDIV_UPDATE = 159001, 159002, 159003
 R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH = 260001, 260011
@@ -145,6 +149,14 @@ ROLE_CATALOGUE = {
         [R_USER_SEARCH, R_USER_CREATE, R_USER_DELETE, R_ROLE_SEARCH, R_ROLE_CREATE, R_ROLE_UPDATE,
          R_ROLE_DELETE] + R_LOC + R_SCHEMA + R_FLOW + R_DEDUP),
 
+    # Access-request sign-off — kept out of System Administrator (config only, no approvals).
+    'Access Request Sponsor': _role(
+        'UG04', 'Department/unit manager sign-off on access requests (MANAGER step).',
+        [R_AR_SEARCH, R_AR_VIEW, R_AR_MANAGER_APPROVE]),
+    'ICT Access Approver': _role(
+        'UG05', 'ICT sign-off on access requests (ICT step). Approval only.',
+        [R_AR_SEARCH, R_AR_VIEW, R_AR_ICT_APPROVE]),
+
     # UG02 — Internal Audit & Assurance (read-only + masked data)
     'Internal Auditor': _role(
         'UG02', 'Reads everything (incl. masked data); changes nothing.',
@@ -175,6 +187,19 @@ ROLE_CATALOGUE = {
         'UG01', 'Final approval hop + department admin/settings for Coordination.',
         [R_COORD_SEARCH, R_COORD_DEPT_APPROVE, R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD,
          R_COORD_ADMIN, R_UNIFIED_CALENDAR]),
+    # Stubs: no rights until the module exists. Add codes here and re-seed when it lands.
+    # docs/RBAC_TITLE_TO_ROLE_MAPPING_PROPOSAL.md §3.
+    'Procurement (stub)': _role('UG01', 'Placeholder — SN 7, 48, 49.', []),
+    'Legal (stub)': _role('UG01', 'Placeholder — SN 36, 57.', []),
+    'Registry and Records (stub)': _role('UG04', 'Placeholder — SN 6, 42, 50, 51, 52.', []),
+    'Supplies, Inventory and Transport (stub)': _role('UG04', 'Placeholder — SN 8, 39, 53, 63.', []),
+    'Corporate Administration (stub)': _role('UG04', 'Placeholder — SN 1, 5, 41.', []),
+    'ICT Support and Development (stub)': _role('UG05', 'Placeholder — SN 9, 34, 54, 56, 59.', []),
+    'Communications (stub)': _role('UG01', 'Placeholder — SN 13, 14.', []),
+    'CSPW and Field Safeguards (stub)': _role('UG07', 'Placeholder — SN 15, 16, 45, 46, 47.', []),
+    'Targeted Infrastructure (stub)': _role('UG07', 'Placeholder — SN 60, 61.', []),
 }
 
 PILOT_ROLE_NAMES = [name for name, entry in ROLE_CATALOGUE.items() if entry['pilot']]
+
+STUB_ROLE_NAMES = [name for name, entry in ROLE_CATALOGUE.items() if not entry['rights']]
