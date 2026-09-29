@@ -53,6 +53,10 @@ R_PAYLIST_SEARCH, R_PAYLIST_GENERATE, R_PAYLIST_APPROVE, R_PAYLIST_SUBMIT = 2703
 R_PAY_FEEDBACK_SEARCH = 270401
 R_PAY_DASHBOARD = 270501
 
+# Data imports — api_etl (module 95) and legacy_individual (module 26)
+R_ETL_RULE_SEARCH, R_ETL_RULE_EXECUTE = 953001, 953002
+R_LEGACY_IMPORT, R_LEGACY_MATCH_REVIEW, R_LEGACY_PROMOTE = 260021, 260031, 260041
+
 # Grievance
 R_GRM = [127000, 127001, 127002, 127003, 127004, 127005, 127006]
 R_GRM_INTAKE = [127000, 127001]
@@ -68,15 +72,32 @@ R_TRAINING = [210101, 210102, 210103, 210104, 210110, R_TRAINING_REPORT] + R_TRA
 R_TRAINING_DASHBOARD = 210601
 R_TRAINING_PARTICIPANT_CREATE = 210702
 
-# Communications
+# Communications (module 22): entity → 01 search, 02 create, 03 update, 04 delete
 R_COMMS_SEARCH = 220101
 R_COMMS_DASHBOARD = 221201
+COMMS_WORK_ENTITIES = [2201, 2204, 2205, 2206, 2208, 2210, 2211, 2214, 2215, 2216, 2218, 2219]
+COMMS_REFERENCE_ENTITIES = [2202, 2203, 2209, 2213, 2217]
+R_COMMS_ATTACHMENT = [220701, 220702]
+R_COMMS_ACTIVITY_APPROVE, R_COMMS_CHANNEL_DISPATCH, R_COMMS_POST_PUBLISH = 220110, 220305, 221505
+R_COMMS_SEARCH_ALL = [e * 100 + 1 for e in COMMS_WORK_ENTITIES + COMMS_REFERENCE_ENTITIES] + [220701]
+R_COMMS_MAKE = [e * 100 + a for e in COMMS_WORK_ENTITIES for a in (2, 3)] + R_COMMS_ATTACHMENT
+R_COMMS_DELETE = [e * 100 + 4 for e in COMMS_WORK_ENTITIES] + [220704]
+R_COMMS_REFERENCE_MANAGE = [e * 100 + a for e in COMMS_REFERENCE_ENTITIES for a in (2, 3, 4)]
 
 # Coordination (module built in this repo; block 2511xx)
 R_COORD_SEARCH, R_COORD_CREATE, R_COORD_UPDATE, R_COORD_DELETE = 251101, 251102, 251103, 251104
 R_COORD_MANAGER_APPROVE, R_COORD_OFFICER_APPROVE, R_COORD_DEPT_APPROVE = 251110, 251111, 251112
 R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD, R_COORD_ADMIN = 251202, 251601, 251901
 R_UNIFIED_CALENDAR = 251602
+
+# Case management (module 29). Household/member edits are maker-checker: the maker holds the
+# registry update rights, the checker holds R_CASE_PENDING_DECIDE, never both.
+R_CASE_CONSOLE, R_CASE_VIEW = 290101, 290102
+R_CASE_PAYMENT_CHANGE_SEARCH, R_CASE_ACCOUNT_CORRECTION = 290201, 290205
+R_CASE_DEACTIVATION_SEARCH, R_CASE_FOLLOWUP_SEARCH = 290301, 290401
+R_CASE_PENDING_SEARCH, R_CASE_PENDING_DECIDE = 290501, 290502
+CASE_READ_ALL = [R_CASE_CONSOLE, R_CASE_VIEW, R_CASE_PAYMENT_CHANGE_SEARCH, R_CASE_ACCOUNT_CORRECTION,
+                 R_CASE_DEACTIVATION_SEARCH, R_CASE_FOLLOWUP_SEARCH, R_CASE_PENDING_SEARCH]
 
 # Read-only "search" set used by oversight roles (Auditor / M&E / ED).
 READ_ACROSS = [
@@ -117,11 +138,12 @@ ROLE_CATALOGUE = {
 
     # UG06 — Programs, PCT & Economic Inclusion
     'PCT Officer': _role(
-        'UG06', 'Enrolment maker; records training/participation; raises grievances.',
+        'UG06', 'Enrolment maker; records training/participation; raises grievances. '
+                'Sees the whole case-management cycle read-only (submissions, decisions, follow-ups).',
         [R_ENROL_SEARCH, R_ENROL_CREATE, R_ENROL_UPDATE, R_INDIV_SEARCH, R_GROUP_SEARCH,
          210101, 210102, R_TRAINING_PARTICIPANT_CREATE, R_TRAINING_CATEGORY_SEARCH,
          R_TRAINING_LEVEL_SEARCH,
-         R_TRAINING_REPORT, 127000, 127001, 127002]),
+         R_TRAINING_REPORT, 127000, 127001, 127002] + CASE_READ_ALL),
     'PCT Manager': _role(
         'UG06', 'Reviews programme work; owns the Training module.',
         [R_ENROL_SEARCH, R_BP_SEARCH, R_PROJECT_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH,
@@ -173,6 +195,19 @@ ROLE_CATALOGUE = {
          R_INDIV_SEARCH, R_GROUP_SEARCH, R_GRM_RESOLVE, 210110,
          R_TRAINING_REPORT] + DASHBOARDS),
 
+    # PAA household/member data updates: PAAF submits (mobile), TMO approves. Scope to the PAA
+    # comes from the user's assigned locations, not the role.
+    'PAA Facilitator': _role(
+        'UG07', 'PAAF: submits household and member changes (mobile app); they wait for TMO '
+                'approval. Tracks own district\'s submissions. Cannot approve.',
+        [R_INDIV_SEARCH, R_INDIV_UPDATE, R_GROUP_SEARCH, R_GROUP_UPDATE,
+         R_CASE_CONSOLE, R_CASE_VIEW, R_CASE_PENDING_SEARCH]),
+    'TMO': _role(
+        'UG07', 'TASAF Monitoring Officer: approves or rejects PAAF household/member changes in '
+                'Pending updates. Makes no registry changes.',
+        [R_INDIV_SEARCH, R_GROUP_SEARCH,
+         R_CASE_CONSOLE, R_CASE_VIEW, R_CASE_PENDING_SEARCH, R_CASE_PENDING_DECIDE]),
+
     # UG01 — Coordination module approval chain (submit → manager → officer → dept)
     'Coordination Officer (maker)': _role(
         'UG01', 'Creates/updates and submits coordination activities.',
@@ -187,6 +222,25 @@ ROLE_CATALOGUE = {
         'UG01', 'Final approval hop + department admin/settings for Coordination.',
         [R_COORD_SEARCH, R_COORD_DEPT_APPROVE, R_COORD_DEPT_MANAGE, R_COORD_DASHBOARD,
          R_COORD_ADMIN, R_UNIFIED_CALENDAR]),
+
+    # UG08 — data imports (ETL pull from the SS server, legacy PSSN import and match review)
+    'Data Import Officer': _role(
+        'UG08', 'Runs ETL and legacy imports, reviews matches, promotes to the registry. No deletes.',
+        [R_ETL_RULE_SEARCH, R_ETL_RULE_EXECUTE, R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH,
+         R_LEGACY_IMPORT, R_LEGACY_MATCH_REVIEW, R_LEGACY_PROMOTE,
+         R_INDIV_SEARCH, R_INDIV_CREATE, R_GROUP_SEARCH]),
+
+    # UG01 — Communications maker-checker (SN 13, 14)
+    'Communications Officer': _role(
+        'UG01', 'Creates and updates activities, posts, registries and events. Cannot approve, '
+                'publish or dispatch.',
+        R_COMMS_SEARCH_ALL + R_COMMS_MAKE + [R_COMMS_DASHBOARD]),
+    'Communications Manager': _role(
+        'UG01', 'Approves activities, publishes posts, dispatches channels; deletes; manages '
+                'reference lists.',
+        R_COMMS_SEARCH_ALL + R_COMMS_DELETE + R_COMMS_REFERENCE_MANAGE
+        + [R_COMMS_ACTIVITY_APPROVE, R_COMMS_CHANNEL_DISPATCH, R_COMMS_POST_PUBLISH,
+           R_COMMS_DASHBOARD]),
     # Stubs: no rights until the module exists. Add codes here and re-seed when it lands.
     # docs/RBAC_TITLE_TO_ROLE_MAPPING_PROPOSAL.md §3.
     'Procurement (stub)': _role('UG01', 'Placeholder — SN 7, 48, 49.', []),
@@ -195,7 +249,6 @@ ROLE_CATALOGUE = {
     'Supplies, Inventory and Transport (stub)': _role('UG04', 'Placeholder — SN 8, 39, 53, 63.', []),
     'Corporate Administration (stub)': _role('UG04', 'Placeholder — SN 1, 5, 41.', []),
     'ICT Support and Development (stub)': _role('UG05', 'Placeholder — SN 9, 34, 54, 56, 59.', []),
-    'Communications (stub)': _role('UG01', 'Placeholder — SN 13, 14.', []),
     'CSPW and Field Safeguards (stub)': _role('UG07', 'Placeholder — SN 15, 16, 45, 46, 47.', []),
     'Targeted Infrastructure (stub)': _role('UG07', 'Placeholder — SN 60, 61.', []),
 }
