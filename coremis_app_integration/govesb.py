@@ -132,6 +132,11 @@ class GovESBProducer:
             user_id=user_id,
         )
 
+        if response.ok and response.success is False:
+            response.ok = False
+            response.error = "GovESB refused: {} (errors {})".format(
+                response.data.get("message"), response.data.get("errors"))
+
         result = {
             "published": True,
             "ok": response.ok,
