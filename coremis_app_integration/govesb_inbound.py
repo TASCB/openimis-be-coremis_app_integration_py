@@ -15,13 +15,17 @@ Policy (fail-closed in production, open in dev)
   false: the body is accepted as-is. This preserves the dev/testing and
   admin-override use of the inbound REST endpoints with bare JSON payloads.
 * **Verification required**: the body MUST be a ``{"data": ..., "signature":
-  ...}`` envelope whose base64 ECDSA signature validates over the deterministic
-  ``compact-json(data)`` against ``settings.ESB["GOV_ESB_PUBLIC_KEY_B64"]``.
+  ...}`` envelope whose base64 ECDSA signature validates against
+  ``settings.ESB["GOV_ESB_PUBLIC_KEY_B64"]`` over the ``data`` text exactly as it
+  arrived (falling back to ``compact-json(data)`` when no raw body is given).
   Anything else — missing envelope, missing key, crypto lib absent, bad
   signature, or any error — is **rejected** (the caller should return HTTP 401).
 
 The business payload handed back is the envelope's ``esbBody`` (unwrapping a
 ``Payload`` wrapper if present), or the bare body when no envelope is used.
+
+Replies: :func:`signed_reply` builds the signed ``{"data": {"success", "esbBody" |
+"message"}, "signature"}`` a provider sends back, always with HTTP 200.
 """
 from __future__ import annotations
 
@@ -54,9 +58,10 @@ def _unwrap_esb_body(data):
     return body
 
 
-def verify_inbound(body):
+def verify_inbound(body, raw=None):
     """
-    Verify an inbound GovESB push.
+    Verify an inbound GovESB push. ``raw`` is the request body as received; pass
+    it whenever available so the signature is checked over the sender's bytes.
 
     Returns ``(payload, verified, error)``:
       * ``payload``  — business dict to hand to the service, or ``None`` on reject
@@ -83,11 +88,12 @@ def verify_inbound(body):
     try:
         from pathlib import Path
 
-        from .esb_client.envelope import _compact_json
+        from .esb_client.envelope import signed_content_candidates
         from .esb_client.signatures import SignatureService
 
         signer = SignatureService(private_key_path=Path("unused"), gov_public_key_b64=pub)
-        ok = signer.verify(_compact_json(data), signature)
+        ok = any(signer.verify(content, signature)
+                 for content in signed_content_candidates(raw, data))
     except ImportError:
         logger.warning("GovESB inbound: esb_client/ecdsa unavailable; cannot verify")
         if required:
@@ -108,4 +114,35 @@ def verify_inbound(body):
     return _unwrap_esb_body(data), True, None
 
 
-__all__ = ["verify_inbound", "inbound_verification_required"]
+def signed_reply(success, esb_body=None, message=None) -> str:
+    """JSON text of a provider reply; send it unchanged, the signature covers these bytes.
+    Unsigned when ESB is off or the key can't be used (logged)."""
+    import json
+
+    from .esb_client.envelope import _compact_json
+
+    data = {"success": bool(success)}
+    if esb_body is not None:
+        data["esbBody"] = esb_body
+    if message is not None:
+        data["message"] = message
+    serialized = _compact_json(data)
+
+    esb = _esb_settings()
+    if not esb or not esb.get("ENABLED", True):
+        return '{"data":' + serialized + "}"
+    try:
+        from pathlib import Path
+
+        from .esb_client.signatures import SignatureService
+
+        signer = SignatureService(private_key_path=Path(esb["CLIENT_PRIVATE_KEY"]),
+                                  gov_public_key_b64=esb.get("GOV_ESB_PUBLIC_KEY_B64", ""))
+        signature = signer.sign(serialized)
+    except Exception as exc:  # noqa: BLE001 — still answer; GovESB decides
+        logger.error("GovESB reply could not be signed: %s", exc)
+        return '{"data":' + serialized + "}"
+    return '{"data":' + serialized + ',"signature":' + json.dumps(signature) + "}"
+
+
+__all__ = ["verify_inbound", "inbound_verification_required", "signed_reply"]

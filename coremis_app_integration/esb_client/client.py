@@ -23,7 +23,7 @@ import requests
 
 from .config import ESBSettings
 from .enums import DataFormat, ESBRequestType
-from .envelope import EnvelopeBuilder, _compact_json
+from .envelope import EnvelopeBuilder, signed_content_candidates
 from .exceptions import (
     ESBAuthenticationError,
     ESBRequestError,
@@ -241,8 +241,10 @@ class ESBClient:
         if self._settings.verify_response_signature:
             if "signature" not in body or "data" not in body:
                 raise ESBSignatureError("ESB response missing 'data' or 'signature'.")
-            serialized = _compact_json(body["data"])
-            verified = self._signer.verify(serialized, body["signature"])
+            verified = any(
+                self._signer.verify(content, body["signature"])
+                for content in signed_content_candidates(http_response.text, body["data"])
+            )
             if not verified:
                 logger.error("ESB signature verification failed for requestId=%s",
                              body.get("data", {}).get("requestId"))

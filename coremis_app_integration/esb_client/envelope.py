@@ -33,6 +33,61 @@ def _compact_json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
 
 
+def raw_json_member(text: str | bytes | None, key: str) -> str | None:
+    """The exact source text of a top-level member of a JSON object, or None.
+    Signatures cover the sender's bytes, which re-serializing may not reproduce."""
+    if text is None:
+        return None
+    if isinstance(text, bytes):
+        try:
+            text = text.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    decoder = json.JSONDecoder()
+    ws = " \t\n\r"
+    try:
+        i = len(text) - len(text.lstrip(ws))
+        if text[i] != "{":
+            return None
+        i += 1
+        while True:
+            while text[i] in ws:
+                i += 1
+            if text[i] == "}":
+                return None
+            name, i = decoder.raw_decode(text, i)
+            while text[i] in ws:
+                i += 1
+            if text[i] != ":":
+                return None
+            i += 1
+            while text[i] in ws:
+                i += 1
+            start = i
+            _, i = decoder.raw_decode(text, i)
+            if name == key:
+                return text[start:i]
+            while text[i] in ws:
+                i += 1
+            if text[i] != ",":
+                return None
+            i += 1
+    except (ValueError, IndexError):
+        return None
+
+
+def signed_content_candidates(raw: str | bytes | None, data: Any) -> list[str]:
+    """What the ``data`` signature may cover: the raw text first, then our compact form."""
+    candidates = []
+    raw_data = raw_json_member(raw, "data")
+    if raw_data is not None:
+        candidates.append(raw_data)
+    compact = _compact_json(data)
+    if compact not in candidates:
+        candidates.append(compact)
+    return candidates
+
+
 class EnvelopeBuilder:
     """Produces signed JSON/XML envelopes ready to send to the ESB."""
 
