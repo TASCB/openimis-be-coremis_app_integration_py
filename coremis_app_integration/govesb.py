@@ -98,6 +98,7 @@ class GovESBProducer:
         request_type: ESBRequestType = ESBRequestType.PUSH,
         data_format: DataFormat = DataFormat.JSON,
         user_id: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
     ) -> dict:
         """
         Send ``payload`` to the ESB under the api/push code resolved from
@@ -131,6 +132,7 @@ class GovESBProducer:
             data_format=data_format,
             request_type=request_type,
             user_id=user_id,
+            extra_headers=extra_headers,
         )
 
         if response.ok and response.success is False:
