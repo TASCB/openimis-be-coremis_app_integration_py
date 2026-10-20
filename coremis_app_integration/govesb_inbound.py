@@ -26,6 +26,9 @@ The business payload handed back is the envelope's ``esbBody`` (unwrapping a
 
 Replies: :func:`signed_reply` builds the signed ``{"data": {"success", "esbBody" |
 "message"}, "signature"}`` a provider sends back, always with HTTP 200.
+
+XML (``<esbrequest>`` / ``<esbresponse>`` with ``<data>`` and ``<signature>``, as in e-GA's
+helper): :func:`verify_inbound_xml` and :func:`signed_reply_xml`, same policy.
 """
 from __future__ import annotations
 
@@ -77,41 +80,83 @@ def verify_inbound(body, raw=None):
         return body, False, None
 
     data = body["data"]
-    signature = body["signature"]
-    pub = _esb_settings().get("GOV_ESB_PUBLIC_KEY_B64", "")
 
-    if not pub:
+    def candidates():
+        from .esb_client.envelope import signed_content_candidates
+        return signed_content_candidates(raw, data)
+
+    verified, problem = _check_signature(candidates, body["signature"])
+    if problem:
         if required:
-            return None, False, "GOV_ESB_PUBLIC_KEY_B64 not configured"
-        return _unwrap_esb_body(data), False, None
+            return None, False, problem
+        logger.warning("GovESB inbound: %s; accepted because verification is not required", problem)
+    return _unwrap_esb_body(data), verified, None
 
+
+def verify_inbound_xml(raw):
+    """XML twin of :func:`verify_inbound`: ``(esbBody as XML text, verified, error)``."""
+    import xml.etree.ElementTree as ET
+
+    from .esb_client.envelope import compact_xml, xml_envelope_fields, xml_signed_content_candidates
+
+    required = inbound_verification_required()
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError as exc:
+        return None, False, f"Invalid XML: {exc}"
+    data = root.find("data")
+    signature = (root.findtext("signature") or "").strip()
+    if data is None or not signature:
+        if required:
+            return None, False, "Missing GovESB signed envelope (data/signature)"
+        body = xml_envelope_fields(data).get("esbBody") if data is not None else compact_xml(root)
+        return body, False, None
+
+    verified, problem = _check_signature(lambda: xml_signed_content_candidates(raw, data), signature)
+    if problem:
+        if required:
+            return None, False, problem
+        logger.warning("GovESB inbound: %s; accepted because verification is not required", problem)
+    return xml_envelope_fields(data).get("esbBody"), verified, None
+
+
+def _check_signature(candidates, signature):
+    """``(verified, problem)``; ``problem`` is why the signature could not be accepted."""
+    pub = _esb_settings().get("GOV_ESB_PUBLIC_KEY_B64", "")
+    if not pub:
+        return False, "GOV_ESB_PUBLIC_KEY_B64 not configured"
     try:
         from pathlib import Path
 
-        from .esb_client.envelope import signed_content_candidates
         from .esb_client.signatures import SignatureService
 
         signer = SignatureService(private_key_path=Path("unused"), gov_public_key_b64=pub)
-        ok = any(signer.verify(content, signature)
-                 for content in signed_content_candidates(raw, data))
+        ok = any(signer.verify(content, signature) for content in candidates())
     except ImportError:
         logger.warning("GovESB inbound: esb_client/ecdsa unavailable; cannot verify")
-        if required:
-            return None, False, "GovESB verification unavailable (esb_client/ecdsa missing)"
-        return _unwrap_esb_body(data), False, None
+        return False, "GovESB verification unavailable (esb_client/ecdsa missing)"
     except Exception as exc:  # noqa: BLE001 — fail closed on any signing error
         logger.warning("GovESB inbound: signature check raised: %s", exc)
-        if required:
-            return None, False, f"Signature verification error: {exc}"
-        return _unwrap_esb_body(data), False, None
+        return False, f"Signature verification error: {exc}"
+    return (True, None) if ok else (False, "Invalid GovESB signature")
 
-    if not ok:
-        if required:
-            return None, False, "Invalid GovESB signature"
-        logger.warning("GovESB inbound: signature invalid but verification not required")
-        return _unwrap_esb_body(data), False, None
 
-    return _unwrap_esb_body(data), True, None
+def _sign(serialized):
+    """Our signature over ``serialized``, or None when ESB is off or the key can't be used."""
+    esb = _esb_settings()
+    if not esb or not esb.get("ENABLED", True):
+        return None
+    try:
+        from pathlib import Path
+
+        from .esb_client.signatures import SignatureService
+
+        signer = SignatureService(private_key_path=Path(esb["CLIENT_PRIVATE_KEY"]),
+                                  gov_public_key_b64=esb.get("GOV_ESB_PUBLIC_KEY_B64", ""))
+        return signer.sign(serialized)
+    except Exception as exc:  # noqa: BLE001 — still answer; GovESB decides
+        logger.error("GovESB reply could not be signed: %s", exc)
+        return None
 
 
 def signed_reply(success, esb_body=None, message=None) -> str:
@@ -127,22 +172,30 @@ def signed_reply(success, esb_body=None, message=None) -> str:
     if message is not None:
         data["message"] = message
     serialized = _compact_json(data)
-
-    esb = _esb_settings()
-    if not esb or not esb.get("ENABLED", True):
-        return '{"data":' + serialized + "}"
-    try:
-        from pathlib import Path
-
-        from .esb_client.signatures import SignatureService
-
-        signer = SignatureService(private_key_path=Path(esb["CLIENT_PRIVATE_KEY"]),
-                                  gov_public_key_b64=esb.get("GOV_ESB_PUBLIC_KEY_B64", ""))
-        signature = signer.sign(serialized)
-    except Exception as exc:  # noqa: BLE001 — still answer; GovESB decides
-        logger.error("GovESB reply could not be signed: %s", exc)
+    signature = _sign(serialized)
+    if signature is None:
         return '{"data":' + serialized + "}"
     return '{"data":' + serialized + ',"signature":' + json.dumps(signature) + "}"
 
 
-__all__ = ["verify_inbound", "inbound_verification_required", "signed_reply"]
+def signed_reply_xml(success, esb_body=None, message=None) -> str:
+    """XML text of a provider reply (``<esbresponse>``); ``esb_body`` is an XML string."""
+    import xml.etree.ElementTree as ET
+
+    from .esb_client.envelope import compact_xml
+
+    doc = ET.Element("esbresponse")
+    data = ET.SubElement(doc, "data")
+    ET.SubElement(data, "success").text = "true" if success else "false"
+    if esb_body is not None:
+        ET.SubElement(data, "esbBody").append(ET.fromstring(compact_xml(esb_body)))
+    if message is not None:
+        ET.SubElement(data, "message").text = message
+    signature = _sign(compact_xml(data))
+    if signature is not None:
+        ET.SubElement(doc, "signature").text = signature
+    return compact_xml(doc)
+
+
+__all__ = ["verify_inbound", "verify_inbound_xml", "inbound_verification_required", "signed_reply",
+           "signed_reply_xml"]

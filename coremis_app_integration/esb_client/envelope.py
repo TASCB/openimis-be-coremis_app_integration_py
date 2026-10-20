@@ -7,19 +7,21 @@ The ESB expects a signed envelope of the form::
       "signature": "<base64 ECDSA signature over the compact-serialized data>"
     }
 
-For XML the equivalent structure is produced with ``<esbrequest>``,
-``<data>``, ``<apiCode>``, ``<esbBody>``, ``<signature>`` elements.
+For XML the equivalent structure is ``<esbrequest><data><apiCode/><esbBody/></data>
+<signature/></esbrequest>``; the signature covers the ``<data>`` element serialized
+the way e-GA's helper does it: no declaration, no layout whitespace, no ``<x/>``.
 
 Keep the JSON encoder deterministic (no spaces, stable key order) because
 the signature is computed over its exact byte-for-byte output.
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
+import re
 import xml.etree.ElementTree as ET
 from typing import Any
-from xml.dom import minidom
 
 from .enums import ESBRequestType
 from .exceptions import ESBError, ESBRequestError
@@ -88,6 +90,71 @@ def signed_content_candidates(raw: str | bytes | None, data: Any) -> list[str]:
     return candidates
 
 
+def _strip_layout(element: ET.Element) -> ET.Element:
+    for node in element.iter():
+        if len(node) and node.text is not None and not node.text.strip():
+            node.text = None
+        if node.tail is not None and not node.tail.strip():
+            node.tail = None
+    return element
+
+
+def compact_xml(element: ET.Element | str | bytes) -> str:
+    """One element as GovESB signs it: no declaration, no layout whitespace, ``<x></x>``."""
+    if isinstance(element, (str, bytes)):
+        element = ET.fromstring(element)
+    else:
+        element = copy.deepcopy(element)
+    return ET.tostring(_strip_layout(element), encoding="unicode", short_empty_elements=False)
+
+
+def raw_xml_element(text: str | bytes | None, tag: str) -> str | None:
+    """The exact source text of the outermost ``<tag>…</tag>``, or None."""
+    if text is None:
+        return None
+    if isinstance(text, bytes):
+        try:
+            text = text.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    match = re.search(rf"<{tag}(?:\s[^>]*)?>.*</{tag}\s*>", text, re.S)
+    return match.group(0) if match else None
+
+
+def xml_signed_content_candidates(raw: str | bytes | None, data: ET.Element) -> list[str]:
+    """XML twin of ``signed_content_candidates``: the received ``<data>`` text, then ours."""
+    candidates = []
+    raw_data = raw_xml_element(raw, "data")
+    if raw_data is not None:
+        candidates.append(raw_data)
+    compact = compact_xml(data)
+    if compact not in candidates:
+        candidates.append(compact)
+    return candidates
+
+
+def xml_envelope_fields(data: ET.Element | None) -> dict:
+    """``success`` / ``requestId`` / ``message`` / ``esbBody`` of an XML ``<data>``; the
+    body is returned as compact XML text (a ``<Payload>`` wrapper removed)."""
+    if data is None:
+        return {}
+    fields: dict[str, Any] = {}
+    success = data.findtext("success")
+    if success is not None:
+        fields["success"] = success.strip().lower() == "true"
+    for name in ("requestId", "message"):
+        value = data.findtext(name)
+        if value is not None:
+            fields[name] = value.strip()
+    body = data.find("esbBody")
+    if body is not None:
+        children = list(body)
+        if len(children) == 1 and children[0].tag == "Payload":
+            children = list(children[0])
+        fields["esbBody"] = "".join(compact_xml(c) for c in children) or (body.text or "").strip()
+    return fields
+
+
 class EnvelopeBuilder:
     """Produces signed JSON/XML envelopes ready to send to the ESB."""
 
@@ -142,41 +209,21 @@ class EnvelopeBuilder:
         if "requestdata" not in payload:
             raise ESBRequestError("XML payload requires a 'requestdata' key.")
         body_xml = payload["requestdata"]
-        if not isinstance(body_xml, str) or not self._is_valid_xml(body_xml):
+        try:
+            body = ET.fromstring(body_xml) if isinstance(body_xml, (str, bytes)) else None
+        except ET.ParseError:
+            body = None
+        if body is None:
             raise ESBRequestError("payload['requestdata'] must be a valid XML string.")
 
         doc = ET.Element("esbrequest")
         data = ET.SubElement(doc, "data")
-
         tag = "pushCode" if request_type is ESBRequestType.PUSH else "apiCode"
         ET.SubElement(data, tag).text = api_code
         if user_id:
             ET.SubElement(data, "userId").text = str(user_id)
+        esb_body = ET.SubElement(data, "esbBody")
+        (ET.SubElement(esb_body, "Payload") if user_id else esb_body).append(_strip_layout(body))
 
-        pretty_body = self._format_xml(body_xml)
-        if user_id:
-            pretty_body = f"<Payload>{pretty_body}</Payload>"
-        pretty_body = pretty_body.replace('<?xml version="1.0" ?>', "")
-        esb_body = ET.fromstring(f"<esbBody>{pretty_body}</esbBody>")
-        data.append(esb_body)
-
-        data_string = ET.tostring(data, encoding="unicode", method="xml", xml_declaration=True)
-        signature = self._signer.sign(data_string)
-        ET.SubElement(doc, "signature").text = signature
-        return ET.tostring(doc, encoding="unicode", method="xml", xml_declaration=True)
-
-    # --- helpers --------------------------------------------------------
-    @staticmethod
-    def _is_valid_xml(xml: str) -> bool:
-        try:
-            ET.fromstring(xml)
-            return True
-        except ET.ParseError:
-            return False
-
-    @staticmethod
-    def _format_xml(xml: str) -> str:
-        root = ET.fromstring(xml)
-        return minidom.parseString(
-            ET.tostring(root, encoding="utf-8")
-        ).toprettyxml(indent="")
+        ET.SubElement(doc, "signature").text = self._signer.sign(compact_xml(data))
+        return compact_xml(doc)

@@ -17,13 +17,19 @@ import base64
 import logging
 import threading
 import time
+import xml.etree.ElementTree as ET
 from typing import Any
 
 import requests
 
 from .config import ESBSettings
 from .enums import DataFormat, ESBRequestType
-from .envelope import EnvelopeBuilder, signed_content_candidates
+from .envelope import (
+    EnvelopeBuilder,
+    signed_content_candidates,
+    xml_envelope_fields,
+    xml_signed_content_candidates,
+)
 from .exceptions import (
     ESBAuthenticationError,
     ESBRequestError,
@@ -139,6 +145,31 @@ class ESBClient:
 
         return self._parse_response(http_response, data_format)
 
+    def _parse_xml_response(self, http_response: requests.Response) -> ESBResponse:
+        text = http_response.text
+        try:
+            root = ET.fromstring(text)
+        except ET.ParseError as exc:
+            raise ESBRequestError("ESB returned non-XML body.", body=text) from exc
+        data = root.find("data")
+        signature = (root.findtext("signature") or "").strip()
+        if data is None:
+            raise ESBRequestError("ESB XML response has no <data>.", body=text)
+        raw = {"data": xml_envelope_fields(data), "signature": signature}
+
+        verified: bool | None = None
+        if self._settings.verify_response_signature:
+            if not signature:
+                raise ESBSignatureError("ESB response missing 'data' or 'signature'.")
+            verified = any(self._signer.verify(content, signature)
+                           for content in xml_signed_content_candidates(text, data))
+            if not verified:
+                logger.error("ESB XML signature verification failed for requestId=%s",
+                             raw["data"].get("requestId"))
+                return ESBResponse(ok=False, status_code=200, raw=raw, signature_verified=False,
+                                   error="Invalid ESB response signature")
+        return ESBResponse(ok=True, status_code=200, raw=raw, signature_verified=verified)
+
     # --- token handling ------------------------------------------------
     def _get_access_token(self) -> str:
         cached = self._tokens.get()
@@ -227,10 +258,7 @@ class ESBClient:
             )
 
         if data_format is DataFormat.XML:
-            # XML verification is out of scope for this demo; return as-is.
-            return ESBResponse(
-                ok=True, status_code=200, raw=http_response.text, signature_verified=None
-            )
+            return self._parse_xml_response(http_response)
 
         try:
             body: dict[str, Any] = http_response.json()

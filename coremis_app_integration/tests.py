@@ -91,3 +91,74 @@ class SignatureOverRawTextTest(SimpleTestCase):
             self.assertEqual(json.loads(signed_reply(True, esb_body={})), {'data': {'success': True, 'esbBody': {}}})
         with override_settings(ESB={**self._esb(), 'CLIENT_PRIVATE_KEY': '/nonexistent.pem'}):
             self.assertNotIn('signature', json.loads(signed_reply(False, message='x')))
+
+
+class XmlEnvelopeTest(SimpleTestCase):
+    def setUp(self):
+        self.ours, self.esb, self.key_path, self.esb_pub = _keys()
+
+    def _esb(self):
+        return {'ENABLED': True, 'CLIENT_PRIVATE_KEY': str(self.key_path),
+                'GOV_ESB_PUBLIC_KEY_B64': self.esb_pub}
+
+    def test_request_is_signed_over_the_compact_data_element(self):
+        from ellipticcurve import Ecdsa
+        from ellipticcurve import Signature as EcSignature
+        from coremis_app_integration.esb_client.envelope import EnvelopeBuilder, raw_xml_element
+        from coremis_app_integration.esb_client.enums import ESBRequestType
+        from coremis_app_integration.esb_client.signatures import SignatureService
+
+        builder = EnvelopeBuilder(SignatureService(self.key_path, self.esb_pub))
+        text = builder.build_xml(api_code='CODE1', payload={'requestdata': '<Gepg>\n  <A>1</A>\n  <B/>\n</Gepg>'},
+                                 request_type=ESBRequestType.NORMAL)
+        data = raw_xml_element(text, 'data')
+        self.assertEqual(data, '<data><apiCode>CODE1</apiCode><esbBody><Gepg><A>1</A><B></B></Gepg></esbBody></data>')
+        self.assertTrue(text.startswith('<esbrequest><data>') and text.endswith('</signature></esbrequest>'))
+        signature = text.split('<signature>')[1].split('</signature>')[0]
+        self.assertTrue(Ecdsa.verify(data, EcSignature.fromBase64(signature), self.ours.publicKey()))
+
+    def _signed_by_esb(self, data):
+        from ellipticcurve import Ecdsa
+        return f'<esbrequest>{data}<signature>{Ecdsa.sign(data, self.esb).toBase64()}</signature></esbrequest>'
+
+    def test_inbound_xml_verifies_over_the_received_text(self):
+        from coremis_app_integration.govesb_inbound import verify_inbound_xml
+        data = '<data>\n <esbBody><Gepg><X a="1">é &amp; b</X></Gepg></esbBody>\n</data>'
+        with override_settings(ESB=self._esb()):
+            body, verified, error = verify_inbound_xml(self._signed_by_esb(data))
+            self.assertEqual((body, verified, error), ('<Gepg><X a="1">é &amp; b</X></Gepg>', True, None))
+            tampered = self._signed_by_esb(data).replace('é', 'e')
+            self.assertEqual(verify_inbound_xml(tampered)[2], 'Invalid GovESB signature')
+            self.assertEqual(verify_inbound_xml('<esbrequest><data></data></esbrequest>')[2],
+                             'Missing GovESB signed envelope (data/signature)')
+            self.assertTrue(verify_inbound_xml('not xml')[2].startswith('Invalid XML'))
+
+    def test_xml_reply_shape_and_signature(self):
+        from ellipticcurve import Ecdsa
+        from ellipticcurve import Signature as EcSignature
+        from coremis_app_integration.esb_client.envelope import raw_xml_element
+        from coremis_app_integration.govesb_inbound import signed_reply_xml
+        with override_settings(ESB=self._esb()):
+            text = signed_reply_xml(True, esb_body='<Ack><Code>7101</Code></Ack>')
+            failure = signed_reply_xml(False, message='Unknown <id>')
+        data = raw_xml_element(text, 'data')
+        self.assertEqual(data, '<data><success>true</success><esbBody><Ack><Code>7101</Code></Ack></esbBody></data>')
+        signature = text.split('<signature>')[1].split('</signature>')[0]
+        self.assertTrue(Ecdsa.verify(data, EcSignature.fromBase64(signature), self.ours.publicKey()))
+        self.assertIn('<message>Unknown &lt;id&gt;</message>', failure)
+
+    def test_client_reads_a_signed_xml_reply(self):
+        from types import SimpleNamespace
+        from unittest import mock
+        from coremis_app_integration.esb_client.client import ESBClient
+        from coremis_app_integration.esb_client.signatures import SignatureService
+
+        data = '<data><success>true</success><requestId>R9</requestId><esbBody><Ack>7101</Ack></esbBody></data>'
+        client = ESBClient.__new__(ESBClient)
+        client._settings = SimpleNamespace(verify_response_signature=True)
+        client._signer = SignatureService(self.key_path, self.esb_pub)
+        reply = client._parse_xml_response(mock.Mock(text=self._signed_by_esb(data).replace('esbrequest', 'esbresponse')))
+        self.assertEqual((reply.ok, reply.signature_verified, reply.request_id, reply.esb_body, reply.success),
+                         (True, True, 'R9', '<Ack>7101</Ack>', True))
+        bad = client._parse_xml_response(mock.Mock(text=self._signed_by_esb(data).replace('R9', 'R8')))
+        self.assertEqual((bad.ok, bad.error), (False, 'Invalid ESB response signature'))

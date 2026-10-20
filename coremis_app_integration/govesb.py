@@ -93,7 +93,7 @@ class GovESBProducer:
     def publish(
         self,
         topic: str,
-        payload: dict,
+        payload,
         *,
         request_type: ESBRequestType = ESBRequestType.PUSH,
         data_format: DataFormat = DataFormat.JSON,
@@ -101,7 +101,8 @@ class GovESBProducer:
     ) -> dict:
         """
         Send ``payload`` to the ESB under the api/push code resolved from
-        ``topic``.
+        ``topic``: a dict for JSON, an XML string with ``data_format=DataFormat.XML``
+        (the reply's ``esb_body`` is then XML text too).
 
         Returns a result dict:
           - ``{"published": False, "disabled": True, ...}`` when ESB is off,
