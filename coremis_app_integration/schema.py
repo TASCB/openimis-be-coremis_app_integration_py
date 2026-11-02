@@ -43,3 +43,8 @@ class Query(graphene.ObjectType):
                 )
 
         return ModulePermissionsListGQLType(module_perms_list=config)
+
+
+def bind_signals():
+    from coremis_app_integration.rbac.countrywide import bind_signals as bind_countrywide
+    bind_countrywide()

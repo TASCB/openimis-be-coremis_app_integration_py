@@ -16,6 +16,8 @@ openIMIS itself has no group concept — the person's workstream lives in FreeIP
 ``pilot`` marks the first-wave subset seeded by default (``--all`` seeds everything).
 """
 
+COUNTRYWIDE_ROLE_NAME = 'Country-wide access (HQ)'
+
 # ── Named right codes ──────────────
 # Core / administration
 R_USER_SEARCH, R_USER_CREATE, R_USER_DELETE = 121701, 121702, 121704
@@ -251,8 +253,14 @@ ROLE_CATALOGUE = {
     'ICT Support and Development (stub)': _role('UG05', 'Placeholder — SN 9, 34, 54, 56, 59.', []),
     'CSPW and Field Safeguards (stub)': _role('UG07', 'Placeholder — SN 15, 16, 45, 46, 47.', []),
     'Targeted Infrastructure (stub)': _role('UG07', 'Placeholder — SN 60, 61.', []),
+
+    # Marker role, no rights: holders get every district.
+    COUNTRYWIDE_ROLE_NAME: _role(
+        'UG05', 'Country-wide location access: the user is given every district. Grants no rights.',
+        []),
 }
 
 PILOT_ROLE_NAMES = [name for name, entry in ROLE_CATALOGUE.items() if entry['pilot']]
 
-STUB_ROLE_NAMES = [name for name, entry in ROLE_CATALOGUE.items() if not entry['rights']]
+STUB_ROLE_NAMES = [name for name, entry in ROLE_CATALOGUE.items()
+                   if not entry['rights'] and name != COUNTRYWIDE_ROLE_NAME]
