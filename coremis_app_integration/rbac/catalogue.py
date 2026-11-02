@@ -254,6 +254,29 @@ ROLE_CATALOGUE = {
     'CSPW and Field Safeguards (stub)': _role('UG07', 'Placeholder — SN 15, 16, 45, 46, 47.', []),
     'Targeted Infrastructure (stub)': _role('UG07', 'Placeholder — SN 60, 61.', []),
 
+    # Directors' read-only drill-in, one per directorate (PSSN III organogram).
+    'Executive Viewer': _role(
+        'UG01', 'Executive Director: reads every directorate and coordination. No edits, no masked data.',
+        READ_ACROSS + DASHBOARDS + LEGACY_REGISTRY_READ + R_COMMS_SEARCH_ALL
+        + [R_BP_SEARCH, R_PROJECT_SEARCH, R_COORD_SEARCH]),
+    'Finance and Administration Viewer': _role(
+        'UG03', 'Director of Finance and Administration: reads payment work down to the household, '
+                'and access requests. No edits.',
+        [R_CYCLE_SEARCH, R_PAYROLL_SEARCH, R_RECON_SEARCH, R_PAYLIST_SEARCH, R_PAY_FEEDBACK_SEARCH,
+         R_PAY_DASHBOARD, R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH, R_AR_SEARCH, R_AR_VIEW]),
+    'Delivery Systems Viewer': _role(
+        'UG05', 'Director of IT and Delivery Systems: reads M&E scope, the TMO queue, communications '
+                'and system set-up. No edits.',
+        READ_ACROSS + DASHBOARDS + LEGACY_REGISTRY_READ + R_COMMS_SEARCH_ALL
+        + [R_BP_SEARCH, R_PROJECT_SEARCH, R_CASE_CONSOLE, R_CASE_VIEW, R_CASE_PENDING_SEARCH,
+           R_USER_SEARCH, R_ROLE_SEARCH, R_LOC[0], R_AR_SEARCH, R_AR_VIEW, R_ETL_RULE_SEARCH]),
+    'Programs Viewer': _role(
+        'UG06', 'Director of Programs: reads registry, enrolment, training, grievances and case '
+                'management. No edits.',
+        [R_INDIV_SEARCH, R_GROUP_SEARCH, R_BP_SEARCH, R_ENROL_SEARCH, R_PROJECT_SEARCH, 210101,
+         R_TRAINING_REPORT, R_TRAINING_DASHBOARD, R_GRM[0], R_PAYLIST_SEARCH]
+        + LEGACY_REGISTRY_READ + CASE_READ_ALL),
+
     # Marker role, no rights: holders get every district.
     COUNTRYWIDE_ROLE_NAME: _role(
         'UG05', 'Country-wide location access: the user is given every district. Grants no rights.',
