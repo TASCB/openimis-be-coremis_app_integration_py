@@ -7,7 +7,7 @@ from coremis_app_integration.rbac.catalogue import COUNTRYWIDE_ROLE_NAME
 
 logger = logging.getLogger(__name__)
 
-USER_MUTATIONS = {'CreateUserMutation', 'UpdateUserMutation'}
+USER_MUTATIONS = {'CreateUserMutation', 'UpdateUserMutation', 'ProvisionAccessRequestMutation'}
 
 
 def active_district_ids():
@@ -63,7 +63,7 @@ def grant_districts(i_user, audit_user_id, district_ids=None, dry_run=False):
 def on_user_after_mutation(sender, **kwargs):
     if kwargs.get('error_messages') or kwargs.get('mutation_class') not in USER_MUTATIONS:
         return []
-    username = (kwargs.get('data') or {}).get('username')
+    username = ((kwargs.get('data') or {}).get('username') or '').strip()[:8]
     if not username:
         return []
     from core.models import InteractiveUser
@@ -97,6 +97,8 @@ def bind_signals():
     from location.models import Location
 
     # Core replaces districts after roles, so grant after the mutation (sent for sync mutations only).
-    signal_mutation_module_after_mutating['core'].connect(
-        on_user_after_mutation, dispatch_uid='coremis_countrywide_user')
+    for module in ('core', 'access_request'):
+        if module in signal_mutation_module_after_mutating:
+            signal_mutation_module_after_mutating[module].connect(
+                on_user_after_mutation, dispatch_uid=f'coremis_countrywide_{module}')
     post_save.connect(on_location_saved, sender=Location, dispatch_uid='coremis_countrywide_location')

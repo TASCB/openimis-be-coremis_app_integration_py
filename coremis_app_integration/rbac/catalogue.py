@@ -31,6 +31,7 @@ R_VIEW_MASKED = 900101
 # Access requests (module 23)
 R_AR_SEARCH, R_AR_VIEW = 230101, 230102
 R_AR_MANAGER_APPROVE, R_AR_ICT_APPROVE = 230201, 230202
+R_AR_PROFILE_MANAGE = 230301  # job-title profiles + section managers
 
 # Individual & household registry
 R_INDIV_SEARCH, R_INDIV_CREATE, R_INDIV_UPDATE = 159001, 159002, 159003
@@ -171,7 +172,7 @@ ROLE_CATALOGUE = {
     'System Administrator': _role(
         'UG05', 'Configures users/roles/locations/schema/flows/dedup. No business approvals.',
         [R_USER_SEARCH, R_USER_CREATE, R_USER_DELETE, R_ROLE_SEARCH, R_ROLE_CREATE, R_ROLE_UPDATE,
-         R_ROLE_DELETE] + R_LOC + R_SCHEMA + R_FLOW + R_DEDUP),
+         R_ROLE_DELETE, R_AR_PROFILE_MANAGE] + R_LOC + R_SCHEMA + R_FLOW + R_DEDUP),
 
     # Access-request sign-off — kept out of System Administrator (config only, no approvals).
     'Access Request Sponsor': _role(
