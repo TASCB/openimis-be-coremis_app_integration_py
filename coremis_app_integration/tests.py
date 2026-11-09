@@ -162,3 +162,28 @@ class XmlEnvelopeTest(SimpleTestCase):
                          (True, True, 'R9', '<Ack>7101</Ack>', True))
         bad = client._parse_xml_response(mock.Mock(text=self._signed_by_esb(data).replace('R9', 'R8')))
         self.assertEqual((bad.ok, bad.error), (False, 'Invalid ESB response signature'))
+
+
+class CountrywideHookLoginTest(SimpleTestCase):
+    def _run(self, username):
+        from unittest import mock
+        from coremis_app_integration.rbac import countrywide
+        user = mock.Mock(login_name=username)
+        with mock.patch('core.models.InteractiveUser.objects') as objects, \
+                mock.patch.object(countrywide, 'has_countrywide_role', return_value=True), \
+                mock.patch.object(countrywide, 'grant_districts') as grant:
+            objects.filter.return_value.first.return_value = user
+            countrywide.on_user_after_mutation(
+                None, mutation_class='UpdateUserMutation', data={'username': username},
+                user=mock.Mock(id_for_audit=1), error_messages=[])
+        return objects.filter.call_args.kwargs['login_name'], grant
+
+    def test_long_login_is_looked_up_in_full(self):
+        looked_up, grant = self._run('commanager2')
+        self.assertEqual(looked_up, 'commanager2')
+        grant.assert_called_once()
+
+    def test_short_login_still_works(self):
+        looked_up, grant = self._run('comtest1')
+        self.assertEqual(looked_up, 'comtest1')
+        grant.assert_called_once()

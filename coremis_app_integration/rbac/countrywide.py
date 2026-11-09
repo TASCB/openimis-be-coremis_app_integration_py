@@ -63,7 +63,7 @@ def grant_districts(i_user, audit_user_id, district_ids=None, dry_run=False):
 def on_user_after_mutation(sender, **kwargs):
     if kwargs.get('error_messages') or kwargs.get('mutation_class') not in USER_MUTATIONS:
         return []
-    username = ((kwargs.get('data') or {}).get('username') or '').strip()[:8]
+    username = ((kwargs.get('data') or {}).get('username') or '').strip()
     if not username:
         return []
     from core.models import InteractiveUser
