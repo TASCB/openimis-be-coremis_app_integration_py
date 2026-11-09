@@ -158,7 +158,7 @@ ROLE_CATALOGUE = {
         R_GRM_INTAKE + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH]),
     'Grievance Officer': _role(
         'UG07', 'Full grievance CRUD incl. resolve; reads registry/enrolment/payment.',
-        R_GRM + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_ENROL_SEARCH, R_PAYLIST_SEARCH]),
+        R_GRM + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_BP_SEARCH, R_ENROL_SEARCH, R_PAYLIST_SEARCH]),
 
     # UG08 — Monitoring, Evaluation & Data (read-only across modules + reporting)
     'M&E Officer': _role(
