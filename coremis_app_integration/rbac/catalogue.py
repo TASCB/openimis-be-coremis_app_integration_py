@@ -63,17 +63,31 @@ R_LEGACY_IMPORT, R_LEGACY_MATCH_REVIEW, R_LEGACY_PROMOTE = 260021, 260031, 26004
 # Grievance
 R_GRM = [127000, 127001, 127002, 127003, 127004, 127005, 127006]
 R_GRM_INTAKE = [127000, 127001]
+R_GRM_SENSITIVE_CLOSE = 127007  # close Critical/High grievances; never the assigned officer
 
-# Training
 R_TRAINING_REPORT = 211301
-R_TRAINING_CATEGORY_SEARCH = 211001
+R_TRAINING_AREA_SEARCH = 210201          # Training Area (programme area) picker
+R_TRAINING_PARTICIPANT_CATEGORY_SEARCH = 211001
 R_TRAINING_JOB_TITLE_SEARCH = 211101
 R_TRAINING_LEVEL_SEARCH = 211401
-R_TRAINING_REFDATA = [R_TRAINING_CATEGORY_SEARCH, R_TRAINING_JOB_TITLE_SEARCH,
-                      R_TRAINING_LEVEL_SEARCH]
-R_TRAINING = [210101, 210102, 210103, 210104, 210110, R_TRAINING_REPORT] + R_TRAINING_REFDATA
 R_TRAINING_DASHBOARD = 210601
-R_TRAINING_PARTICIPANT_CREATE = 210702
+R_TRAINING_RUN = [
+    210101, 210102, 210103,                  # trainings
+    R_TRAINING_AREA_SEARCH,
+    210301, 210302, 210303,                  # trainer profiles
+    210401, 210402, 210403, 210404,          # trainer / staff assignments
+    210501, 210502, 210504,                  # materials
+    R_TRAINING_DASHBOARD,                    # dashboard + calendar
+    210701, 210702, 210703, 210704,          # participants / attendance
+    210801, 210802, 210804,                  # evidence
+    210901, 210902, 210903, 210904,          # sessions + QR check-in
+    R_TRAINING_PARTICIPANT_CATEGORY_SEARCH, R_TRAINING_JOB_TITLE_SEARCH, R_TRAINING_LEVEL_SEARCH,
+    211201,                                  # staff user groups (staff picker)
+    R_TRAINING_REPORT,
+]
+R_TRAINING_APPROVE = 210110
+R_TRAINING_SEARCH = 210101
+R_TRAINING_DELETE = 210104
 
 # Communications (module 22): entity → 01 search, 02 create, 03 update, 04 delete
 R_COMMS_SEARCH = 220101
@@ -141,16 +155,14 @@ ROLE_CATALOGUE = {
 
     # UG06 — Programs, PCT & Economic Inclusion
     'PCT Officer': _role(
-        'UG06', 'Enrolment maker; records training/participation; raises grievances. '
+        'UG06', 'Enrolment maker; plans and runs trainings (submits for approval); raises grievances. '
                 'Sees the whole case-management cycle read-only (submissions, decisions, follow-ups).',
         [R_ENROL_SEARCH, R_ENROL_CREATE, R_ENROL_UPDATE, R_INDIV_SEARCH, R_GROUP_SEARCH,
-         210101, 210102, R_TRAINING_PARTICIPANT_CREATE, R_TRAINING_CATEGORY_SEARCH,
-         R_TRAINING_LEVEL_SEARCH,
-         R_TRAINING_REPORT, 127000, 127001, 127002] + CASE_READ_ALL),
+         127000, 127001, 127002] + R_TRAINING_RUN + CASE_READ_ALL),
     'PCT Manager': _role(
-        'UG06', 'Reviews programme work; owns the Training module.',
+        'UG06', 'Reviews programme work; owns the Training module: runs and approves trainings.',
         [R_ENROL_SEARCH, R_BP_SEARCH, R_PROJECT_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH,
-         127000, R_UNIFIED_CALENDAR] + R_TRAINING),
+         127000, R_UNIFIED_CALENDAR, R_TRAINING_APPROVE, R_TRAINING_DELETE] + R_TRAINING_RUN),
 
     # UG07 — CSPW / Safeguards / GRM
     'GRM Intake': _role(
@@ -159,6 +171,11 @@ ROLE_CATALOGUE = {
     'Grievance Officer': _role(
         'UG07', 'Full grievance CRUD incl. resolve; reads registry/enrolment/payment.',
         R_GRM + [R_INDIV_SEARCH, R_GROUP_SEARCH, R_BP_SEARCH, R_ENROL_SEARCH, R_PAYLIST_SEARCH]),
+    'Grievance Manager': _role(
+        'UG07', 'Grievance Officer rights plus closing sensitive (Critical/High) grievances '
+                'handled by another officer, and assigning grievances to staff.',
+        R_GRM + [R_GRM_SENSITIVE_CLOSE, R_USER_SEARCH, R_INDIV_SEARCH, R_GROUP_SEARCH, R_BP_SEARCH, R_ENROL_SEARCH,
+                 R_PAYLIST_SEARCH]),
 
     # UG08 — Monitoring, Evaluation & Data (read-only across modules + reporting)
     'M&E Officer': _role(
@@ -195,7 +212,7 @@ ROLE_CATALOGUE = {
     'Director of Programs': _role(
         'UG06', 'Final programme/enrolment approver; benefit-plan setup; training certification.',
         [R_ENROL_SEARCH, R_ENROL_UPDATE, R_BP_SEARCH, R_BP_CREATE, R_BP_UPDATE, R_PROJECT_SEARCH,
-         R_INDIV_SEARCH, R_GROUP_SEARCH, R_GRM_RESOLVE, 210110,
+         R_INDIV_SEARCH, R_GROUP_SEARCH, R_GRM_RESOLVE, R_TRAINING_SEARCH, R_TRAINING_APPROVE,
          R_TRAINING_REPORT] + DASHBOARDS),
 
     # PAA household/member data updates: PAAF submits (mobile), TMO approves. Scope to the PAA
