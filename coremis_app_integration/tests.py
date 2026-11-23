@@ -187,3 +187,20 @@ class CountrywideHookLoginTest(SimpleTestCase):
         looked_up, grant = self._run('comtest1')
         self.assertEqual(looked_up, 'comtest1')
         grant.assert_called_once()
+
+
+class AcceptedStatusTest(SimpleTestCase):
+    def _parse(self, status):
+        from types import SimpleNamespace
+        from coremis_app_integration.esb_client.client import DataFormat, ESBClient
+        http = SimpleNamespace(status_code=status, text='{"data": {"success": true}}',
+                               json=lambda: {'data': {'success': True}})
+        fake = SimpleNamespace(_settings=SimpleNamespace(verify_response_signature=False))
+        return ESBClient._parse_response(fake, http, DataFormat.JSON)
+
+    def test_202_from_the_provider_is_ok(self):
+        r = self._parse(202)
+        self.assertEqual((r.ok, r.status_code), (True, 202))
+
+    def test_other_statuses_are_not_ok(self):
+        self.assertFalse(self._parse(403).ok)

@@ -244,7 +244,7 @@ class ESBClient:
     def _parse_response(
         self, http_response: requests.Response, data_format: DataFormat
     ) -> ESBResponse:
-        if http_response.status_code != 200:
+        if http_response.status_code not in (200, 202):
             logger.warning(
                 "ESB returned non-200: %s — %s",
                 http_response.status_code,
@@ -285,5 +285,5 @@ class ESBClient:
                 )
 
         return ESBResponse(
-            ok=True, status_code=200, raw=body, signature_verified=verified
+            ok=True, status_code=http_response.status_code, raw=body, signature_verified=verified
         )
