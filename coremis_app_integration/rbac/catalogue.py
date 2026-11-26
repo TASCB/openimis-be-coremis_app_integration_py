@@ -36,6 +36,7 @@ R_AR_PROFILE_MANAGE = 230301  # job-title profiles + section managers
 # Individual & household registry
 R_INDIV_SEARCH, R_INDIV_CREATE, R_INDIV_UPDATE = 159001, 159002, 159003
 R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH = 260001, 260011
+R_RM4_INDIV_SEARCH, R_RM4_GROUP_SEARCH = 260051, 260061  # RM4 archive, read only
 R_GROUP_SEARCH, R_GROUP_CREATE = 180001, 180002
 
 # Social protection (benefit plan / enrolment / project)
@@ -126,8 +127,8 @@ READ_ACROSS = [
 DASHBOARDS = [R_PAY_DASHBOARD, R_TRAINING_DASHBOARD, R_COMMS_DASHBOARD, R_COORD_DASHBOARD,
               R_UNIFIED_CALENDAR]
 
-# PSSN II (legacy) registry, read-only.
-LEGACY_REGISTRY_READ = [R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH]
+# PSSN I & II and RM4 archives, read-only.
+LEGACY_REGISTRY_READ = [R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH, R_RM4_INDIV_SEARCH, R_RM4_GROUP_SEARCH]
 
 
 def _role(group, description, rights, pilot=True):
@@ -247,7 +248,7 @@ ROLE_CATALOGUE = {
     # UG08 — data imports (ETL pull from the SS server, legacy PSSN import and match review)
     'Data Import Officer': _role(
         'UG08', 'Runs ETL and legacy imports, reviews matches, promotes to the registry. No deletes.',
-        [R_ETL_RULE_SEARCH, R_ETL_RULE_EXECUTE, R_LEGACY_INDIV_SEARCH, R_LEGACY_GROUP_SEARCH,
+        [R_ETL_RULE_SEARCH, R_ETL_RULE_EXECUTE, R_SURVEY_DASHBOARD, *LEGACY_REGISTRY_READ,
          R_LEGACY_IMPORT, R_LEGACY_MATCH_REVIEW, R_LEGACY_PROMOTE,
          R_INDIV_SEARCH, R_INDIV_CREATE, R_GROUP_SEARCH]),
 
@@ -288,7 +289,8 @@ ROLE_CATALOGUE = {
                 'and system set-up. No edits.',
         READ_ACROSS + DASHBOARDS + LEGACY_REGISTRY_READ + R_COMMS_SEARCH_ALL
         + [R_BP_SEARCH, R_PROJECT_SEARCH, R_CASE_CONSOLE, R_CASE_VIEW, R_CASE_PENDING_SEARCH,
-           R_USER_SEARCH, R_ROLE_SEARCH, R_LOC[0], R_AR_SEARCH, R_AR_VIEW, R_ETL_RULE_SEARCH]),
+           R_USER_SEARCH, R_ROLE_SEARCH, R_LOC[0], R_AR_SEARCH, R_AR_VIEW, R_ETL_RULE_SEARCH,
+           R_SURVEY_DASHBOARD]),
     'Programs Viewer': _role(
         'UG06', 'Director of Programs: reads registry, enrolment, training, grievances and case '
                 'management. No edits.',

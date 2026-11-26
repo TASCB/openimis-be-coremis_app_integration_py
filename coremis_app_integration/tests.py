@@ -189,6 +189,16 @@ class CountrywideHookLoginTest(SimpleTestCase):
         grant.assert_called_once()
 
 
+class ArchiveRightsCatalogueTest(SimpleTestCase):
+    def test_roles_seeing_pssn_archive_also_see_rm4(self):
+        from coremis_app_integration.rbac.catalogue import ROLE_CATALOGUE
+
+        for name, role in ROLE_CATALOGUE.items():
+            rights = set(role['rights'])
+            self.assertEqual(260001 in rights, 260051 in rights, name)
+            self.assertEqual(260011 in rights, 260061 in rights, name)
+
+
 class AcceptedStatusTest(SimpleTestCase):
     def _parse(self, status):
         from types import SimpleNamespace
