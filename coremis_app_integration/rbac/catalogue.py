@@ -58,6 +58,7 @@ R_PAY_DASHBOARD = 270501
 
 # Data imports — api_etl (module 95) and legacy_individual (module 26)
 R_ETL_RULE_SEARCH, R_ETL_RULE_EXECUTE = 953001, 953002
+R_SURVEY_DASHBOARD = 953101
 R_LEGACY_IMPORT, R_LEGACY_MATCH_REVIEW, R_LEGACY_PROMOTE = 260021, 260031, 260041
 
 # Grievance
@@ -276,7 +277,7 @@ ROLE_CATALOGUE = {
     'Executive Viewer': _role(
         'UG01', 'Executive Director: reads every directorate and coordination. No edits, no masked data.',
         READ_ACROSS + DASHBOARDS + LEGACY_REGISTRY_READ + R_COMMS_SEARCH_ALL
-        + [R_BP_SEARCH, R_PROJECT_SEARCH, R_COORD_SEARCH]),
+        + [R_BP_SEARCH, R_PROJECT_SEARCH, R_COORD_SEARCH, R_SURVEY_DASHBOARD]),
     'Finance and Administration Viewer': _role(
         'UG03', 'Director of Finance and Administration: reads payment work down to the household, '
                 'and access requests. No edits.',
